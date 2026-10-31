@@ -1,0 +1,29 @@
+services:
+  wxmp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        ALPINE_IMAGE: ${ALPINE_IMAGE:-docker.m.daocloud.io/library/alpine:3.20}
+        ALPINE_MIRROR: ${ALPINE_MIRROR:-https://mirrors.aliyun.com/alpine}
+    image: wechat-mp-downloader:1.2.2
+    container_name: wxmp-web
+    network_mode: bridge
+    command: ["--web", "-listen", "0.0.0.0:2178", "-o", "/download", "-data", "/data", "-no-browser"]
+    ports:
+      - "${WEB_PORT:-2178}:2178"
+    volumes:
+      - "${DOWNLOAD_DIR:-/mnt/media/wechat}:/download"
+      - "${WXMP_DATA_DIR:-./data}:/data"
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      WXMP_OUT: /download
+      WXMP_DATA: /data
+    restart: unless-stopped
+    stop_grace_period: 10s
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:2178/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
