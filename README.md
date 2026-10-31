@@ -15,11 +15,7 @@
 
 ![WebUI 首页](docs/webui-home.png)
 
-![解析结果](docs/webui-preview.png)
 
-![合集解析](docs/webui-collection.png)
-
-![Android 合集](docs/android-album.png)
 
 ---
 
