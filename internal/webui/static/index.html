@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>微信公众号图片下载器 · wxmp</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="ambient" aria-hidden="true"><i></i><i></i><i></i></div>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo" aria-hidden="true">微</div>
+    <div class="brand-text">
+      <h1>公众号图片下载器</h1>
+      <p>原图 · 动图 · 自定义目录与重命名</p>
+    </div>
+  </div>
+  <div class="top-actions">
+    <span class="pill" id="serverState"><i class="dot"></i><span>连接中…</span></span>
+    <a class="link" href="https://mp.weixin.qq.com/" target="_blank" rel="noopener noreferrer">打开公众号平台</a>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="card" id="cardInput">
+    <div class="card-head">
+      <span class="step">01</span>
+      <div>
+        <h2>粘贴文章链接</h2>
+        <p>支持 mp.weixin.qq.com/s/… 分享链接，一行一个，最多 30 条</p>
+      </div>
+    </div>
+    <textarea id="urls" rows="4" spellcheck="false" placeholder="https://mp.weixin.qq.com/s/y9op-1LgaEJ5hEYcFJyFJw&#10;https://mp.weixin.qq.com/s/xxxxxxxx"></textarea>
+    <div class="row between wrap-row">
+      <div class="hint">链接里的 #rd、chksm 等参数会自动忽略；只读取公开可见内容。</div>
+      <div class="row gap">
+        <button class="btn ghost" id="btnClear" type="button">清空</button>
+        <button class="btn primary" id="btnParse" type="button">解析文章</button>
+      </div>
+    </div>
+    <div class="alert hidden" id="parseError"></div>
+  </section>
+
+  <section class="card hidden" id="cardPreview">
+    <div class="card-head">
+      <span class="step">02</span>
+      <div class="head-flex">
+        <div>
+          <h2>内容预览</h2>
+          <p id="previewSummary">解析完成后在这里预览将下载的图片</p>
+        </div>
+        <button class="btn tiny ghost" id="btnCollapsePreview" type="button">收起</button>
+      </div>
+    </div>
+    <div id="articles" class="articles"></div>
+    <div id="collections" class="collections hidden"></div>
+  </section>
+
+  <section class="card" id="cardSettings">
+    <div class="card-head">
+      <span class="step">03</span>
+      <div>
+        <h2>下载设置</h2>
+        <p>目录与命名规则都会实时生效，命名规则支持 <code>/</code> 创建子文件夹</p>
+      </div>
+    </div>
+
+    <div class="form-grid">
+      <label class="field span-2">
+        <span class="label">下载目录</span>
+        <span class="input-row">
+          <input id="outDir" type="text" spellcheck="false" autocomplete="off" placeholder="/download">
+          <button class="btn tiny ghost" id="btnOpenDir" type="button">打开目录</button>
+        </span>
+        <span class="sub">容器内默认 /download，对应宿主机挂载目录；Windows/APK 下为本地文件夹。</span>
+      </label>
+
+      <label class="field">
+        <span class="label">并发下载数</span>
+        <input id="jobs" type="number" min="1" max="16" step="1" value="4">
+        <span class="sub">建议 4，最大 16</span>
+      </label>
+
+      <div class="field">
+        <span class="label">选项</span>
+        <span class="checks">
+          <label class="check"><input type="checkbox" id="optCover"> 附带封面</label>
+          <label class="check"><input type="checkbox" id="optVideo"> 尝试视频</label>
+          <label class="check"><input type="checkbox" id="optForce"> 覆盖已有</label>
+        </span>
+      </div>
+
+      <label class="field span-2">
+        <span class="label">合集重命名规则</span>
+        <span class="input-row">
+          <input id="collectionTpl" type="text" spellcheck="false" autocomplete="off">
+          <button class="btn tiny ghost" id="btnResetCollection" type="button">恢复默认</button>
+        </span>
+        <span class="sub">默认 <code>&lt;合集标题&gt;/&lt;合集内文章序号&gt;-&lt;文章标题&gt;/&lt;文章id&gt;-&lt;图片序号&gt;.&lt;扩展名&gt;</code>，额外支持 <code>&lt;collection_title&gt;</code>、<code>&lt;collection_id&gt;</code>、<code>&lt;collection_order&gt;</code>。</span>
+      </label>
+
+      <label class="field span-2">
+        <span class="label">重命名规则</span>
+        <span class="input-row">
+          <input id="nameTpl" type="text" spellcheck="false" autocomplete="off">
+          <button class="btn tiny ghost" id="btnResetName" type="button">恢复默认</button>
+        </span>
+        <span class="sub">默认 <code>&lt;文章标题&gt;-&lt;文章id&gt;-&lt;图片序号&gt;.&lt;扩展名&gt;</code>，可改成 <code>&lt;文章标题&gt;/&lt;文章id&gt;-&lt;图片序号&gt;.&lt;扩展名&gt;</code> 自动分文件夹。</span>
+      </label>
+    </div>
+
+    <div class="tokens" id="tokens"></div>
+    <div class="name-preview" id="namePreview">
+      <span class="label">命名预览</span>
+      <code id="nameSample">—</code>
+      <span class="sub" id="nameMore"></span>
+    </div>
+
+    <div class="row between wrap-row start-actions">
+      <div class="hint" id="downloadHint">解析文章后即可开始下载。</div>
+      <button class="btn primary large" id="btnDownload" type="button" disabled>开始下载</button>
+    </div>
+    <div class="alert hidden" id="downloadError"></div>
+  </section>
+
+  <section class="card hidden" id="cardProgress">
+    <div class="card-head">
+      <span class="step">04</span>
+      <div class="head-flex">
+        <div>
+          <h2>下载进度</h2>
+          <p id="jobMeta">等待任务开始</p>
+        </div>
+        <button class="btn tiny danger hidden" id="btnCancel" type="button">取消任务</button>
+      </div>
+    </div>
+
+    <div class="progress"><div class="bar" id="bar"></div></div>
+    <div class="stats" id="stats">
+      <div class="stat"><b id="statDone">0</b><span>已处理</span></div>
+      <div class="stat"><b id="statOk">0</b><span>成功</span></div>
+      <div class="stat"><b id="statSkip">0</b><span>跳过</span></div>
+      <div class="stat"><b id="statFail">0</b><span>失败</span></div>
+    </div>
+
+    <div class="job-cols">
+      <div class="job-col">
+        <h3>实时日志</h3>
+        <pre class="logs" id="logs"></pre>
+      </div>
+      <div class="job-col">
+        <h3>文件列表</h3>
+        <div class="results" id="results"><div class="empty">还没有下载结果</div></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <span>wxmp · 仅下载公开文章内容，请尊重原作者版权</span>
+  <span id="footVer"></span>
+</footer>
+
+<div class="lightbox hidden" id="lightbox" role="dialog" aria-modal="true" aria-label="图片预览">
+  <button class="lb-close" id="lbClose" type="button" aria-label="关闭">×</button>
+  <figure>
+    <img id="lbImg" alt="">
+    <figcaption id="lbCap"></figcaption>
+  </figure>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="/static/app.js" defer></script>
+</body>
+</html>
