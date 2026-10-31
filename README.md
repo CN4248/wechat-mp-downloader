@@ -84,9 +84,7 @@ adb install -r dist/wxmp-android.apk
 
 ![Android 首页](docs/android-home.png)
 
-![Android 解析结果](docs/android-parse.png)
 
-![Android 下载完成](docs/android-download.png)
 
 ### 1.4 命令行（Linux / macOS / Windows）
 
