@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#eef4f0">
+<title>微信公众号图片下载器 · wxmp</title>
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/theme.js"></script>
+</head>
+<body>
+<datalist id="dirOptions"></datalist>
+<div class="ambient" aria-hidden="true"><i></i><i></i><i></i></div>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo" aria-hidden="true">微</div>
+    <div class="brand-text">
+      <h1>公众号图片下载器</h1>
+      <p>原图 · 动图 · 自定义目录与重命名</p>
+    </div>
+  </div>
+  <div class="top-actions">
+    <div class="theme-switch" id="themeSwitch" role="group" aria-label="配色主题">
+      <button type="button" class="tsw" data-theme-set="auto" title="跟随系统" aria-label="跟随系统">A</button>
+      <button type="button" class="tsw" data-theme-set="sun" title="阳光模式" aria-label="阳光模式"><i style="--c1:#fbbf24;--c2:#f97316"></i></button>
+      <button type="button" class="tsw" data-theme-set="mint" title="薄荷（默认）" aria-label="薄荷主题"><i style="--c1:#34d399;--c2:#059669"></i></button>
+      <button type="button" class="tsw" data-theme-set="ocean" title="海盐" aria-label="海盐主题"><i style="--c1:#60a5fa;--c2:#1d4ed8"></i></button>
+      <button type="button" class="tsw" data-theme-set="sakura" title="樱花" aria-label="樱花主题"><i style="--c1:#f9a8d4;--c2:#db2777"></i></button>
+      <button type="button" class="tsw" data-theme-set="dark" title="深色模式" aria-label="深色模式"><i style="--c1:#26543f;--c2:#0b120f"></i></button>
+      <button type="button" class="tsw" data-theme-set="midnight" title="午夜蓝" aria-label="午夜蓝主题"><i style="--c1:#4f46e5;--c2:#0b1020"></i></button>
+    </div>
+    <span class="pill" id="serverState"><i class="dot"></i><span>连接中…</span></span>
+    <a class="link" href="https://mp.weixin.qq.com/" target="_blank" rel="noopener noreferrer">打开公众号平台</a>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="card" id="cardInput">
+    <div class="card-head">
+      <span class="step">01</span>
+      <div>
+        <h2>粘贴文章链接</h2>
+        <p>支持 mp.weixin.qq.com/s/… 分享链接，一行一个，最多 30 条</p>
+      </div>
+    </div>
+    <textarea id="urls" rows="4" spellcheck="false" placeholder="https://mp.weixin.qq.com/s/demo1234567890ab&#10;https://mp.weixin.qq.com/s/xxxxxxxx"></textarea>
+    <div class="row between wrap-row">
+      <div class="hint">链接里的 #rd、chksm 等参数会自动忽略；只读取公开可见内容。</div>
+      <div class="row gap">
+        <button class="btn ghost" id="btnClear" type="button">清空</button>
+        <button class="btn primary" id="btnParse" type="button">解析文章</button>
+      </div>
+    </div>
+    <div class="alert hidden" id="parseError"></div>
+  </section>
+
+  <section class="card hidden" id="cardPreview">
+    <div class="card-head">
+      <span class="step">02</span>
+      <div class="head-flex">
+        <div>
+          <h2>内容预览</h2>
+          <p id="previewSummary">解析完成后在这里预览将下载的图片；每篇可单独改下载目录和重命名规则</p>
+        </div>
+        <button class="btn tiny ghost" id="btnCollapsePreview" type="button">收起</button>
+      </div>
+    </div>
+    <div id="articles" class="articles"></div>
+    <div id="collections" class="collections hidden"></div>
+  </section>
+
+  <section class="card" id="cardSettings">
+    <div class="card-head">
+      <span class="step">03</span>
+      <div>
+        <h2>下载设置</h2>
+        <p>目录与命名规则都会实时生效，命名规则支持 <code>/</code> 创建子文件夹</p>
+      </div>
+    </div>
+
+    <div class="form-grid">
+      <label class="field span-2">
+        <span class="label">下载目录</span>
+        <span class="input-row">
+          <input id="outDir" type="text" spellcheck="false" autocomplete="off" list="dirOptions" placeholder="/download">
+          <button class="btn tiny ghost" id="btnOpenDir" type="button">打开目录</button>
+        </span>
+        <span class="sub">容器内默认 /download，对应宿主机挂载目录；Windows/APK 下为本地文件夹。</span>
+      </label>
+
+      <label class="field">
+        <span class="label">并发下载数</span>
+        <input id="jobs" type="number" min="1" max="16" step="1" value="4">
+        <span class="sub">建议 4，最大 16</span>
+      </label>
+
+      <div class="field">
+        <span class="label">选项</span>
+        <span class="checks">
+          <label class="check"><input type="checkbox" id="optCover"> 附带封面</label>
+          <label class="check"><input type="checkbox" id="optVideo"> 尝试视频</label>
+          <label class="check"><input type="checkbox" id="optForce"> 覆盖已有</label>
+        </span>
+      </div>
+
+      <label class="field span-2">
+        <span class="label">合集重命名规则</span>
+        <span class="input-row">
+          <input id="collectionTpl" type="text" spellcheck="false" autocomplete="off">
+          <button class="btn tiny ghost" id="btnResetCollection" type="button">恢复默认</button>
+        </span>
+        <span class="sub">默认 <code>&lt;合集标题&gt;/&lt;合集内文章序号&gt;-&lt;文章标题&gt;/&lt;文章id&gt;-&lt;图片序号&gt;.&lt;扩展名&gt;</code>，额外支持 <code>&lt;collection_title&gt;</code>、<code>&lt;collection_id&gt;</code>、<code>&lt;collection_order&gt;</code>。</span>
+      </label>
+
+      <label class="field span-2">
+        <span class="label">重命名规则</span>
+        <span class="input-row">
+          <input id="nameTpl" type="text" spellcheck="false" autocomplete="off">
+          <button class="btn tiny ghost" id="btnResetName" type="button">恢复默认</button>
+        </span>
+        <span class="sub">默认 <code>&lt;文章标题&gt;-&lt;文章id&gt;-&lt;图片序号&gt;.&lt;扩展名&gt;</code>，可改成 <code>&lt;文章标题&gt;/&lt;文章id&gt;-&lt;图片序号&gt;.&lt;扩展名&gt;</code> 自动分文件夹。</span>
+      </label>
+    </div>
+
+    <div class="tokens" id="tokens"></div>
+    <div class="name-preview" id="namePreview">
+      <span class="label">命名预览</span>
+      <code id="nameSample">—</code>
+      <span class="sub" id="nameMore"></span>
+    </div>
+
+    <div class="row between wrap-row start-actions">
+      <div class="hint" id="downloadHint">解析文章后即可开始下载。</div>
+      <button class="btn primary large" id="btnDownload" type="button" disabled>开始下载</button>
+    </div>
+    <div class="alert hidden" id="downloadError"></div>
+  </section>
+
+  <section class="card hidden" id="cardProgress">
+    <div class="card-head">
+      <span class="step">04</span>
+      <div class="head-flex">
+        <div>
+          <h2>下载进度</h2>
+          <p id="jobMeta">等待任务开始</p>
+        </div>
+        <div class="row gap">
+          <button class="btn tiny ghost hidden" id="btnPause" type="button">暂停</button>
+          <button class="btn tiny ghost hidden" id="btnResume" type="button">继续</button>
+          <button class="btn tiny danger hidden" id="btnCancel" type="button">取消任务</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="progress"><div class="bar" id="bar"></div></div>
+    <div class="stats" id="stats">
+      <div class="stat"><b id="statDone">0</b><span>已处理</span></div>
+      <div class="stat"><b id="statOk">0</b><span>成功</span></div>
+      <div class="stat"><b id="statSkip">0</b><span>跳过</span></div>
+      <div class="stat"><b id="statFail">0</b><span>失败</span></div>
+    </div>
+
+    <div class="job-cols">
+      <div class="job-col">
+        <h3>实时日志</h3>
+        <pre class="logs" id="logs"></pre>
+      </div>
+      <div class="job-col">
+        <h3>文件列表</h3>
+        <div class="results" id="results"><div class="empty">还没有下载结果</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" id="cardSubs">
+    <div class="card-head">
+      <span class="step">05</span>
+      <div class="head-flex">
+        <div>
+          <h2>定时追更</h2>
+          <p>定时扫描合集 / 公众号，发现新文章自动下载；每个追更任务都有独立的重命名规则与下载目录</p>
+        </div>
+        <span class="pill" id="subState"><i class="dot"></i><span>读取中…</span></span>
+      </div>
+    </div>
+
+    <div class="sub-config">
+      <label class="check"><input type="checkbox" id="subEnabled"> 启用定时扫描</label>
+      <label class="mini-field"><span>扫描间隔（分钟）</span><input id="subInterval" type="number" min="2" max="1440" step="1"></label>
+      <label class="mini-field"><span>单轮最多下载</span><input id="subMaxNew" type="number" min="1" max="200" step="1"></label>
+      <label class="mini-field"><span>两次扫描最小间隔（秒）</span><input id="subMinGap" type="number" min="30" max="3600" step="10"></label>
+      <button class="btn tiny" id="btnSubConfig" type="button">保存设置</button>
+      <span class="sub" id="subNextRun"></span>
+    </div>
+
+    <div class="sub-config sub-cookie">
+      <label class="mini-field cookie-field">
+        <span>微信 Cookie（仅保存在内存，不落盘、不写日志；按篇追更必需）</span>
+        <input id="wxCookie" type="password" autocomplete="off" spellcheck="false" placeholder="uin=...; key=...; wap_sid2=...">
+      </label>
+      <button class="btn tiny" id="btnSaveCookie" type="button">保存 Cookie</button>
+      <button class="btn tiny ghost" id="btnClearCookie" type="button">清除</button>
+      <span class="sub" id="cookieState">未设置</span>
+    </div>
+
+    <div class="sub-add">
+      <h3>添加追更任务</h3>
+      <div class="sub-add-grid">
+        <label class="field">
+          <span class="label">追更方式</span>
+          <select id="subKind">
+            <option value="album">合集：这个合集更新就下载</option>
+            <option value="account">公众号：它的公开合集</option>
+            <option value="author">公众号：全部文章（需 Cookie）</option>
+          </select>
+        </label>
+        <label class="field span-2">
+          <span class="label">合集链接 / 文章链接</span>
+          <span class="input-row">
+            <input id="subUrl" type="text" spellcheck="false" autocomplete="off" placeholder="https://mp.weixin.qq.com/mp/appmsgalbum?... 或任意该公众号文章链接">
+            <button class="btn tiny" id="btnSubResolve" type="button">解析</button>
+          </span>
+          <span class="sub">追更方式三选一：<b>合集</b>＝只跟这个合集；<b>公众号·公开合集</b>＝跟这个号的所有公开合集；<b>公众号·全部文章</b>＝逐篇跟他发的每一篇文章（需要含 uin/key 的微信 Cookie）。</span>
+        </label>
+        <label class="field">
+          <span class="label">重命名规则（可单独设置）</span>
+          <input id="subTemplate" type="text" spellcheck="false" autocomplete="off" placeholder="留空＝默认规则">
+        </label>
+        <label class="field">
+          <span class="label">下载目录（可单独设置）</span>
+          <input id="subDir" type="text" spellcheck="false" autocomplete="off" list="dirOptions" placeholder="留空＝默认目录">
+        </label>
+        <label class="field">
+          <span class="label">首次补下最近 N 篇（0＝只追新；不设篇数上限）</span>
+          <input id="subBackfill" type="number" min="0" step="1" value="0">
+        </label>
+      </div>
+      <div class="hint" id="subResolveInfo">解析后会显示识别到的合集 / 公众号，再点「添加追更」。</div>
+      <div class="row between wrap-row">
+        <div class="hint">不填「补下」篇数时首次只建立基线：只下载之后发布的新文章。</div>
+        <button class="btn primary" id="btnSubAdd" type="button" disabled>添加追更</button>
+      </div>
+    </div>
+
+    <div class="sub-search">
+      <h3>搜索公众号作者</h3>
+      <div class="row gap wrap-row">
+        <input id="subQuery" type="text" spellcheck="false" autocomplete="off" placeholder="公众号名称 / 微信号 / __biz，或直接粘贴文章链接">
+        <button class="btn tiny" id="btnSubSearch" type="button">搜索</button>
+      </div>
+      <div class="sub-results" id="subResults"><div class="empty">微信没有对外的公众号搜索接口，这里搜索本机解析过的公众号；也可以直接粘贴该公众号任意文章链接解析。</div></div>
+    </div>
+
+    <div class="sub-toolbar">
+      <label class="check"><input type="checkbox" id="subSelectAll"> 全选</label>
+      <span class="sub" id="subSelInfo">未选择</span>
+      <span class="row gap wrap-row">
+        <button class="btn tiny ghost" id="btnSubEnable" type="button">开启所选</button>
+        <button class="btn tiny ghost" id="btnSubDisable" type="button">关闭所选</button>
+        <button class="btn tiny ghost" id="btnSubCheck" type="button">立即检查所选</button>
+        <button class="btn tiny danger" id="btnSubDelete" type="button">删除所选</button>
+      </span>
+    </div>
+    <div class="sub-list" id="subList"><div class="empty">还没有追更任务</div></div>
+  </section>
+
+  <section class="card" id="cardTasks">
+    <div class="card-head">
+      <span class="step">06</span>
+      <div class="head-flex">
+        <div>
+          <h2>下载任务</h2>
+          <p id="queueMeta">任务记录保存在 data 卷，容器重启/重建后仍然保留</p>
+        </div>
+        <div class="row gap wrap-row">
+          <button class="btn tiny ghost" id="btnTasksReload" type="button">刷新</button>
+          <button class="btn tiny ghost" id="btnPauseAll" type="button">暂停全部</button>
+          <button class="btn tiny ghost" id="btnResumeAll" type="button">开始全部</button>
+          <button class="btn tiny ghost" id="btnRetryFailed" type="button">重试所有失败</button>
+          <button class="btn tiny danger" id="btnClearDone" type="button">删除已完成任务</button>
+        </div>
+      </div>
+    </div>
+    <div class="task-bar">
+      <label class="check"><input type="checkbox" id="taskSelectAll"> 全选</label>
+      <span class="sub" id="taskSelInfo">未选择</span>
+      <span class="row gap wrap-row">
+        <button class="btn tiny ghost" id="btnTaskPause" type="button">暂停所选</button>
+        <button class="btn tiny ghost" id="btnTaskResume" type="button">开始所选</button>
+        <button class="btn tiny ghost" id="btnTaskCancel" type="button">取消所选</button>
+        <button class="btn tiny ghost" id="btnTaskRetry" type="button">重试所选</button>
+        <button class="btn tiny danger" id="btnTaskDelete" type="button">删除所选</button>
+      </span>
+    </div>
+    <div class="history-list" id="historyList"><div class="empty">暂无任务</div></div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <span>wxmp · 仅下载公开文章内容，请尊重原作者版权</span>
+  <span id="footVer"></span>
+</footer>
+
+<div class="lightbox hidden" id="lightbox" role="dialog" aria-modal="true" aria-label="图片预览">
+  <button class="lb-close" id="lbClose" type="button" aria-label="关闭">×</button>
+  <figure>
+    <img id="lbImg" alt="">
+    <figcaption id="lbCap"></figcaption>
+  </figure>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="/static/app.js" defer></script>
+</body>
+</html>

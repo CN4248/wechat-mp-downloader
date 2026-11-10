@@ -1,0 +1,34 @@
+services:
+  wxmp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        ALPINE_IMAGE: ${ALPINE_IMAGE:-docker.m.daocloud.io/library/alpine:3.20}
+        ALPINE_MIRROR: ${ALPINE_MIRROR:-https://mirrors.aliyun.com/alpine}
+    image: wechat-mp-downloader:1.3.0
+    container_name: wxmp-web
+    network_mode: bridge
+    command: ["--web", "-listen", "0.0.0.0:2178", "-o", "/download", "-data", "/data", "-no-browser"]
+    ports:
+      - "${WEB_PORT:-2178}:2178"
+    volumes:
+      # 宿主机目录全部走环境变量，默认落在仓库内的相对目录（见 .env.example）
+      - "${DOWNLOAD_DIR:-./downloads}:/download"
+      - "${WXMP_DATA_DIR:-./data}:/data"
+      # 可选：额外下载目录，容器内固定为 /fanbook
+      - "${FANBOOK_DIR:-./fanbook}:/fanbook"
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      WXMP_OUT: /download
+      WXMP_DATA: /data
+      # 可选：按篇追更所需的微信 Cookie（只放宿主环境变量，不要写进仓库）
+      WXMP_COOKIE: ${WXMP_COOKIE:-}
+    restart: unless-stopped
+    stop_grace_period: 10s
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:2178/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s

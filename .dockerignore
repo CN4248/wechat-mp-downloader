@@ -1,0 +1,11 @@
+.git
+.gitignore
+dist
+docs
+android
+userscript
+testdata
+*.md
+.env
+downloads
+build/*.exe
